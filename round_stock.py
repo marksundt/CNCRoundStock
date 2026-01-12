@@ -21,7 +21,8 @@ class GCodeGenerator:
     def __init__(self, stock_size: float, finished_diameter: float, 
                  stock_length: float, tool_diameter: float, 
                  feedrate: float = 100.0, spindle_speed: int = 1000,
-                 stepover: float = 0.1, safe_z: float = 1.0):
+                 stepover: float = 0.1, safe_z: float = 1.0, 
+                 plunge_depth: float = 0.1):
         """
         Initialize the G-code generator.
         
@@ -34,6 +35,7 @@ class GCodeGenerator:
             spindle_speed: Spindle RPM
             stepover: Depth of cut per pass (inches or mm)
             safe_z: Safe Z height for rapid moves (inches or mm)
+            plunge_depth: Initial plunge depth before cutting (inches or mm)
         """
         self.stock_size = stock_size
         self.finished_diameter = finished_diameter
@@ -43,6 +45,7 @@ class GCodeGenerator:
         self.spindle_speed = spindle_speed
         self.stepover = stepover
         self.safe_z = safe_z
+        self.plunge_depth = plunge_depth
         
         # Validate inputs
         if finished_diameter > stock_size * math.sqrt(2):
@@ -106,7 +109,7 @@ class GCodeGenerator:
                 gcode.append(f"G00 X{x_pos:.4f} Z{self.safe_z}")
                 
                 # Feed down to cutting depth
-                gcode.append(f"G01 Z-0.1 F{self.feedrate}")
+                gcode.append(f"G01 Z-{self.plunge_depth} F{self.feedrate}")
                 
                 # Make the cut along the length
                 gcode.append(f"G01 Z-{self.stock_length:.4f}")
@@ -137,7 +140,7 @@ class GCodeGenerator:
             
             if pos == 0:
                 gcode.append(f"G00 X{x_pos:.4f} Z{self.safe_z}")
-                gcode.append(f"G01 Z-0.1 F{self.feedrate}")
+                gcode.append(f"G01 Z-{self.plunge_depth} F{self.feedrate}")
             
             # Make the cut along the length
             gcode.append(f"G01 Z-{self.stock_length:.4f}")
@@ -213,6 +216,8 @@ Examples:
                         help='Depth of cut per pass (default: 0.1)')
     parser.add_argument('--safe-z', type=float, default=1.0,
                         help='Safe Z height for rapid moves (default: 1.0)')
+    parser.add_argument('--plunge-depth', type=float, default=0.1,
+                        help='Initial plunge depth before cutting (default: 0.1)')
     parser.add_argument('-o', '--output', type=str, default='round_stock.tap',
                         help='Output filename (default: round_stock.tap)')
     
@@ -227,7 +232,8 @@ Examples:
             feedrate=args.feedrate,
             spindle_speed=args.spindle_speed,
             stepover=args.stepover,
-            safe_z=args.safe_z
+            safe_z=args.safe_z,
+            plunge_depth=args.plunge_depth
         )
         
         generator.save_to_file(args.output)
