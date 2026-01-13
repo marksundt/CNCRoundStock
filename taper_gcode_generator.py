@@ -84,6 +84,7 @@ def generate_taper_gcode(start_diameter, end_diameter, length, pitch=0.125, feed
         f.write("\r\n")
 
         # Generate passes
+        current_angle = 0.0  # Track cumulative angle position
         for pass_num in range(1, num_passes + 1):
             f.write(f"(Pass {pass_num} of {num_passes})\r\n")
 
@@ -96,19 +97,28 @@ def generate_taper_gcode(start_diameter, end_diameter, length, pitch=0.125, feed
             final_y = length
 
             # Move to start position for this pass
-            f.write("G0 Y0.0 A0.0 (Return to start)\r\n")
+            if pass_num == 1:
+                # First pass: reset both Y and A to zero
+                f.write("G0 Y0.0 A0.0 (Return to start)\r\n")
+                current_angle = 0.0
+            else:
+                # Subsequent passes: only reset Y, keep A at current position
+                f.write("G0 Y0.0 (Return to Y start, maintain A position)\r\n")
 
             # Engage at Z depth
             f.write(f"G1 Z{z_pos:.4f} F{feed_rate} (Engage at depth)\r\n")
 
             # Cleanup circle at start (before helical cut)
-            f.write(f"G1 A360.0000 F{feed_rate} (Cleanup circle at start)\r\n")
+            current_angle += 360.0
+            f.write(f"G1 A{current_angle:.4f} F{feed_rate} (Cleanup circle at start)\r\n")
 
             # Single continuous helical cut - Y advances while A rotates
-            f.write(f"G1 Y{final_y:.4f} A{total_rotation + 360.0:.4f} F{feed_rate} (Helical cut)\r\n")
+            current_angle += total_rotation
+            f.write(f"G1 Y{final_y:.4f} A{current_angle:.4f} F{feed_rate} (Helical cut)\r\n")
 
             # Cleanup circle at end
-            f.write(f"G1 A{total_rotation + 720.0:.4f} F{feed_rate} (Cleanup circle at end)\r\n")
+            current_angle += 360.0
+            f.write(f"G1 A{current_angle:.4f} F{feed_rate} (Cleanup circle at end)\r\n")
 
             # Retract after pass
             f.write("G0 Z0.5 (Retract)\r\n")
@@ -117,7 +127,9 @@ def generate_taper_gcode(start_diameter, end_diameter, length, pitch=0.125, feed
         # Cleanup
         f.write("(Cleanup)\r\n")
         f.write("G0 Z0.5 (Retract to safe Z)\r\n")
-        f.write("G0 Y0.0 A0.0 (Return to start)\r\n")
+        # Dont wait for A to un-wind, just move to Y Zero and stop
+        #f.write("G0 Y0.0 A0.0 (Return to start)\r\n")
+        f.write("G0 Y0.0 (Keep A position, Return to start)\r\n")
         #f.write("M5 (Stop spindle)\r\n")
         #f.write("M30 (Program end)\r\n")
         f.write("M02 (Program end)\r\n")
